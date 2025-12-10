@@ -1,4 +1,4 @@
-# Terminology Controlled Translator
+# TC Translator - Terminology Controlled Translation System
 
 A translation system that preserves domain-specific terminology during translation by using controlled glossaries.
 
