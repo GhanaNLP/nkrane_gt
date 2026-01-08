@@ -4,14 +4,14 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="tc-translate",
+    name="ghana-translator",
     version="0.1.0",
     author="Mich-Seth Owusu",
     author_email="michsethowusu@gmail.com",
     description="Terminology-Controlled Translator with Google Translate API",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/GhanaNLP/tc-translate",
+    url="https://github.com/GhanaNLP/ghana-translator",
     packages=find_packages(),
     package_data={
         'tc_translate': ['terminologies/*.csv'],
@@ -33,7 +33,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "tc-translate=tc_translate.cli:main",
+            "ghana-translator=tc_translate.cli:main",
         ],
     },
     keywords="translation, terminology, google translate, localization",
