@@ -11,15 +11,15 @@ A Python package that extends Google Translate and other MT models with terminol
 ## Installation
 
 ```bash
-git clone https://github.com/GhanaNLP/nkrane-translator.git 
-cd nkrane-translator
+git clone https://github.com/GhanaNLP/nkrane.git 
+cd nkrane
 pip install -e .
 ```
 
 Or install directly:
 
 ```bash
-pip install git+https://github.com/GhanaNLP/nkrane-translator.git 
+pip install git+https://github.com/GhanaNLP/nkrane.git 
 ```
 
 ## Quick Start
