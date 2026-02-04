@@ -202,28 +202,6 @@ translator = NkraneTranslator(
 
 ---
 
-### Project Structure
-
-```
-nkrane-gt/
-├── nkrane_gt/
-│   ├── __init__.py          # Package exports
-│   ├── translator.py        # Main NkraneTranslator class
-│   ├── terminology_manager.py  # Dictionary & NLP logic
-│   ├── language_codes.py    # Language code mappings
-│   ├── utils.py            # Helper functions
-│   ├── cli.py              # Command-line interface
-│   └── data/               # Built-in dictionaries
-│       ├── nouns_ak.pkl    # Akan/Twi terms
-│       ├── nouns_ee.pkl    # Ewe terms
-│       └── nouns_gaa.pkl   # Ga terms
-├── tests/
-├── setup.py
-└── README.md
-```
-
----
-
 ## 📖 Citation
 
 If you use Nkrane in your research, please cite:
