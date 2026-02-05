@@ -1,4 +1,4 @@
-# Nkrane: Enhanced Machine Translation with Terminology Control
+# Nkrane
 
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -59,25 +59,7 @@ translator = NkraneTranslator(target_lang='ak')
 result = translator.translate("I want to buy a house and a car.")
 print(result['text'])
 # Output: "Me pɛ sɛ metɔ efie ne kar."
-INFO:nkrane_gt.translator:Terminology loaded: 446281 total terms (446281 built-in, 0 user)
 
-Mepɛ sɛ metɔ efie ne kaa.
-{
-  "text": "Mepɛ sɛ metɔ efie ne kaa.",
-  "src": "en",
-  "dest": "ak",
-  "original": "I want to buy a house and a car.",
-  "preprocessed": "I want to buy a <2> and a <1>.",
-  "google_translation": "Mepɛ sɛ metɔ <2> ne <1>.",
-  "replacements_count": 2,
-  "src_google": "en",
-  "dest_google": "ak",
-  "replaced_terms": [
-    "<1>",
-    "<2>"
-  ],
-  "translation_time": 0.6670994758605957
-}
 ```
 
 ### With Custom Terminology
@@ -86,8 +68,8 @@ Mepɛ sɛ metɔ efie ne kaa.
 # Create custom CSV
 cat > my_terms.csv << EOF
 text,translation
-house,ofie
-car,ntentan
+house,efie
+car,kar
 school,sukuu
 EOF
 
@@ -115,19 +97,6 @@ for r in results:
     print(f"{r['original']} -> {r['text']}")
 ```
 
----
-
-## 🔧 Supported Languages
-
-### Target Languages (Built-in Dictionaries)
-
-| Code | Language | Terms Available |
-|------|----------|----------------|
-| `ak` | Akan (Twi) | 400,000+ |
-
-### Source Languages
-
-Any language supported by Google Translate (English, French, Spanish, etc.)
 
 ---
 
