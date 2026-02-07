@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class NkraneTranslator:
     def __init__(self, target_lang: str, src_lang: str = 'en', 
-                 terminology_source: str = None):
+                 terminology_source: str = None, use_builtin: bool = True):
         """
         Initialize Nkrane Translator.
 
@@ -20,15 +20,17 @@ class NkraneTranslator:
             target_lang: Target language code (e.g., 'ak', 'ee', 'gaa')
             src_lang: Source language code (default: 'en')
             terminology_source: Path to user's terminology CSV file (optional)
+            use_builtin: Whether to use built-in dictionary (default: True)
         """
         self.target_lang = target_lang
         self.src_lang = src_lang
+        self.use_builtin = use_builtin
 
-        # Initialize terminology manager (always with use_builtin=False)
+        # Initialize terminology manager
         self.terminology_manager = TerminologyManager(
             target_lang=target_lang,
             user_csv_path=terminology_source,
-            use_builtin=False
+            use_builtin=use_builtin
         )
 
         # Convert language codes to Google format
@@ -44,24 +46,13 @@ class NkraneTranslator:
 
         # Log terminology stats
         stats = self.terminology_manager.get_terms_count()
-        if stats['total'] > 0:
-            logger.info(f"Terminology loaded: {stats['total']} terms from user CSV")
-        else:
-            logger.info("No terminology loaded - translations will use Google Translate directly")
-        
-        if use_pivot:
-            logger.info(f"Using pivot translation: {src_lang} → {pivot_lang} → {target_lang}")
+        logger.info(f"Terminology loaded: {stats['total']} total terms "
+                   f"({stats['builtin']} built-in, {stats['user']} user)")
 
     def _google_translate_sync(self, text: str) -> str:
         """
         Synchronous Google Translate using requests.
         Uses the same endpoint that googletrans library uses.
-        
-        Args:
-            text: Text to translate
-            
-        Returns:
-            Translated text
         """
         # Google Translate web API endpoint (same one googletrans uses)
         url = "https://translate.googleapis.com/translate_a/single"
@@ -122,8 +113,7 @@ class NkraneTranslator:
             logger.debug(f"Preprocessed text: {preprocessed_text}")
             logger.debug(f"Replacements: {list(replacements.keys())}")
 
-            # Step 2: Translate using Google Translate
-            logger.debug(f"Translating: {self.src_lang} → {self.target_lang}")
+            # Step 2: Translate using synchronous Google Translate API
             translated_with_placeholders = self._google_translate_sync(preprocessed_text)
 
             # Step 3: Postprocess - replace placeholders with translations
