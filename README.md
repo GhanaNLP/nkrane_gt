@@ -1,336 +1,260 @@
-# Nkrane
+# Nkrane-GT
 
-[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Enhanced machine translation with terminology control using Google Translate.
 
-Nkrane - Google Translate (nkrane-gt) is a Python library that enhances Google Translate with **custom terminology control** for low-resource languages, with a focus on Ghanaian languages.
-
-It solves the problem of inconsistent translations for critical terms by allowing you to enforce specific translations for nouns and noun phrases while letting Google Translate handle the grammatical structure.
-
----
-
-## 🌍 Why Nkrane?
-
-Standard machine translation often struggles with:
-- **Inconsistent terminology** - The same word translated differently in different contexts
-- **Named entities** - People names, place names, cultural terms mistranslated
-- **Domain-specific vocabulary** - Technical, medical, or legal terms poorly handled
-- **Low-resource languages** - Limited training data for African languages
-
-**Nkrane solves this by:**
-1. **You provide a CSV file** with your preferred term translations (required)
-2. Nkrane extracts noun phrases from source text using NLP (spaCy)
-3. Matches them against your terminology dictionary
-4. Replaces content words with placeholders (preserving articles like "a", "the")
-5. Translates with Google Translate
-6. Restores your terminology with proper case preservation and sentence capitalization
-
-**You control the terminology. Google Translate handles the grammar.**
-
----
-
-## 📦 Installation
-
-### From Source
+## Installation
 
 ```bash
-git clone https://github.com/ghananlp/nkrane-gt.git
-cd nkrane-gt
-pip install -e .
-```
-
-### Requirements
-
-```bash
-pip install pandas spacy requests
+pip install requests spacy
 python -m spacy download en_core_web_sm
 ```
 
----
+## Quick Start
 
-## 🎯 Quick Start
+### 1. Create Your Terminology CSV
 
-### Step 1: Create Your Terminology CSV
-
-Create a CSV file with your preferred translations:
-Supported header names:
-- **Source**: `text`, `english`, `source`, `term`, `word`
-- **Target**: `text_translated`, `translation`, `target`, `translated`
-
-```bash
-text,text_translated
+```csv
+term,translation
 house,efie
 car,kaa
-market,gua
-station,gyinabea
-school,sukuu
-teacher,okyerɛkyerɛfo
-student,asuafo
+buy,tɔ
+want,pɛ
 ```
 
-### Step 2: Translate with Your Terminology
+### 2. Translate
+
+**Command Line:**
+```bash
+python translate.py "I want to buy a house" -t ak -c my_terms.csv
+```
+
+**Python:**
+```python
+from nkrane_gt import NkraneTranslator
+
+translator = NkraneTranslator(target_lang='ak', terminology_source='my_terms.csv')
+result = translator.translate("I want to buy a house")
+print(result['text'])  # Mepɛ sɛ metɔ efie
+```
+
+## Command Line Usage
+
+### Basic Commands
+
+```bash
+# Translate text
+python translate.py "TEXT" -t TARGET_LANG -c TERMS.csv
+
+# Translate from file
+python translate.py -f input.txt -t TARGET_LANG -c TERMS.csv -o output.txt
+
+# Debug mode (show substitutions)
+python translate.py "TEXT" -t TARGET_LANG -c TERMS.csv --debug
+
+# Without terminology (direct Google Translate)
+python translate.py "TEXT" -t TARGET_LANG
+
+# Quiet mode (only output translation)
+python translate.py "TEXT" -t TARGET_LANG -c TERMS.csv -q
+```
+
+### Arguments
+
+| Argument | Description | Required |
+|----------|-------------|----------|
+| `text` or `-f FILE` | Text to translate or input file | Yes |
+| `-t LANG` | Target language (e.g., ak, ee, gaa) | Yes |
+| `-s LANG` | Source language (default: en) | No |
+| `-c FILE` | Terminology CSV file | No |
+| `-o FILE` | Output file | No |
+| `--debug` | Show term substitutions | No |
+| `-q` | Quiet mode (only output translation) | No |
+
+### Examples
+
+```bash
+# Basic translation
+python translate.py "I want to buy a house" -t ak -c terms.csv
+
+# See what terms were substituted
+python translate.py "I want to buy a house and a car" -t ak -c terms.csv --debug
+
+# Batch translate a file
+python translate.py -f input.txt -t ak -c terms.csv -o output.txt
+
+# Direct translation without terminology
+python translate.py "Hello world" -t ak
+
+# Just the translation output
+python translate.py "I want a house" -t ak -c terms.csv -q
+```
+
+### Debug Mode Output
+
+```bash
+$ python translate.py "I want to buy a house" -t ak -c terms.csv --debug
+
+============================================================
+🔍 DEBUG MODE
+============================================================
+
+📝 Original text:
+   I want to buy a house
+
+🔄 Preprocessed text (with placeholders):
+   I <0> to <1> <2>
+
+📋 Term substitutions (3):
+   <0> → 'pɛ' (was: 'want')
+   <1> → 'tɔ' (was: 'buy')
+   <2> → 'efie' (was: 'house')
+
+🌐 Google translation (with placeholders):
+   Mepɛ sɛ metɔ efie
+
+✅ Final translation:
+   Mepɛ sɛ metɔ efie
+
+⏱️  Translation time: 0.85s
+============================================================
+```
+
+## Python API
+
+### Basic Usage
 
 ```python
 from nkrane_gt import NkraneTranslator
 
-# Initialize with your custom terminology
+# Initialize translator
 translator = NkraneTranslator(
-    target_lang='ak',  # Akan/Twi (ak) or Ewe (ee) or Ga (gaa)
-    terminology_source='my_terms.csv'
+    target_lang='ak',
+    src_lang='en',              # optional, default: 'en'
+    terminology_source='my_terms.csv'  # optional
 )
 
 # Translate
-result = translator.translate("I want to buy a house and a car.")
+result = translator.translate("I want to buy a house")
 print(result['text'])
-# Output: "Mepɛ sɛ metɔ efie ne kaa."
+```
 
-print(f"Terms replaced: {result['replacements_count']}")
-# Output: Terms replaced: 2
+### With Debug Mode
+
+```python
+result = translator.translate("I want to buy a house", debug=True)
+
+# Access result details
+print(result['text'])                   # Final translation
+print(result['original'])               # Original text
+print(result['replacements_count'])     # Number of terms substituted
+print(result['replaced_terms'])         # List of placeholders
+print(result['translation_time'])       # Time in seconds
 ```
 
 ### Batch Translation
 
 ```python
-translator = NkraneTranslator(
-    target_lang='ak',
-    terminology_source='my_terms.csv'
-)
-
 texts = [
-    "I want to buy a house today.",
-    "The car is very fast.",
-    "The students go to school."
+    "I want to buy a house.",
+    "The school is near the market.",
+    "We need water."
 ]
 
-results = translator.batch_translate(texts)
-for r in results:
-    print(f"{r['original']}")
-    print(f"  → {r['text']}")
-    print(f"  (Replaced {r['replacements_count']} terms)\n")
-```
+results = translator.batch_translate(texts, debug=True)
+
+for result in results:
+    print(result['text'])
 ```
 
----
-
-## 📚 How It Works
-
-### The Translation Pipeline
-
-```
-Input: "The station is in Accra."
-         ↓
-1. Noun Phrase Extraction (spaCy)
-   → Finds: "The station" (noun chunk), "Accra" (proper noun)
-   → Filters stopwords: "The station" → "station" (content word)
-   → Keeps "The" as leading stopword
-         ↓
-2. Dictionary Matching (Your CSV)
-   → "station" in CSV? ✓ → "gyinabea"
-   → "Accra" in CSV? ✗ → Keep as is
-         ↓
-3. Preprocessing (Stopwords preserved)
-   → "The <1> is in Accra."
-         ↓
-4. Google Translate
-   → "The <1> is in Accra." → "<1> no wɔ Accra"
-         ↓
-5. Postprocessing (Case-matched + Sentence caps)
-   → "<1> no wɔ Accra" → "Gyinabea no wɔ Accra"
-   → (Capitalized because at sentence start)
-         ↓
-Output: "Gyinabea no wɔ Accra."
-```
-
-### Key Features
-
-✅ **Stopword Preservation** - Articles like "a", "the" stay in place  
-✅ **Case Matching** - Translations match original capitalization  
-✅ **Sentence Capitalization** - First word of sentences auto-capitalized  
-✅ **Multi-sentence Support** - Unique placeholders across all sentences  
-✅ **Direct Translation** - Simple English → Target language translation
-
----
-
-## 🛠️ Advanced Usage
-
-### Detailed Translation Results
+### Without Terminology
 
 ```python
-result = translator.translate("The station is in Accra.")
-
-print("Original:", result['original'])
-print("Preprocessed:", result['preprocessed'])
-print("Google output:", result['google_translation'])
-print("Final:", result['text'])
-print("Terms replaced:", result['replacements_count'])
+# Direct Google Translate
+translator = NkraneTranslator(target_lang='ak')
+result = translator.translate("Hello world")
+print(result['text'])
 ```
 
-**Output:**
+## CSV Format
+
+Your CSV must have at least 2 columns. Column names are auto-detected:
+
+**Supported column names:**
+- English: `term`, `text`, `english`, `source`, `word`
+- Translation: `translation`, `text_translated`, `target`, `translated`
+
+**Examples:**
+
+```csv
+term,translation
+house,efie
+car,kaa
 ```
-Original: The station is in Accra.
-Preprocessed: The <1> is in Accra.
-Google output: <1> no wɔ Accra
-Final: Gyinabea no wɔ Accra.
-Terms replaced: 1
+
+```csv
+english,twi
+house,efie
+car,kaa
 ```
 
----
-
-## 🌐 Supported Languages
-
-### Target Languages
-- **ak** - Akan/Twi (Ghana)
-- **ee** - Ewe (Ghana, Togo)
-- **gaa** - Ga (Ghana)
-- Plus any language supported by Google Translate
-
-### Source Languages
-- **en** - English (default)
-- Any language supported by Google Translate
-
----
-
-## 📋 Best Practices
-
-### 1. Focus on Key Terms
-Don't translate everything - focus on:
-- Domain-specific vocabulary
-- Proper nouns (names, places)
-- Technical terms
-- Words with multiple meanings
-
-### 2. Use Multi-word Phrases
 ```csv
 text,text_translated
-high school,ntoaso sukuu
-emergency room,ntɛm ayaresabea
-trading space,aguadibea
+house,efie
+car,kaa
 ```
 
-### 3. Test Your Terminology
-```python
-# Check what terms were actually replaced
-result = translator.translate("The student goes to high school.")
-print("Replaced:", result['replaced_terms'])
-print("Count:", result['replacements_count'])
-```
+All formats work the same.
 
-### 4. Preserve Natural Language
-Let Google Translate handle:
-- Grammar and sentence structure
-- Verb conjugations
-- Pronouns and function words
-- Context-dependent translations
+## Supported Languages
 
----
+**Ghanaian Languages:**
+- `ak` - Akan/Twi
+- `ee` - Ewe
+- `gaa` - Ga
 
+- Plus all Google Translate supported languages
 
-## 🔍 Troubleshooting
-
-### Terms Not Being Replaced?
-
-**Check if spaCy recognizes it as a noun:**
-```python
-import spacy
-nlp = spacy.load("en_core_web_sm")
-doc = nlp("The big house is red.")
-for chunk in doc.noun_chunks:
-    print(f"Chunk: '{chunk.text}'")
-# Output: Chunk: 'The big house'
-```
-
-**Make sure your CSV has the exact content words:**
-```csv
-# Correct - uses content words
-text,text_translated
-big house,efie kɛse
-
-# Won't match "the big house" because "the" is filtered out
-```
-
-### Case Issues?
-
-The system automatically handles:
-- ✅ Sentence-initial capitalization
-- ✅ Title Case preservation
-- ✅ ALL CAPS preservation
+## Result Dictionary
 
 ```python
-# All of these work correctly:
-"The house" → "Efie"  (capitalized)
-"the house" → "efie"  (lowercase)
-"THE HOUSE" → "EFIE"  (all caps)
-```
-
----
-
-## 📖 Citation
-
-If you use Nkrane in your research, please cite:
-
-```bibtex
-@software{nkrane_gt,
-  title={Nkrane: Enhanced Machine Translation with Custom Terminology Control},
-  author={GhanaNLP},
-  year={2026},
-  url={https://github.com/ghananlp/nkrane-gt}
+{
+    'text': str,                  # Final translated text
+    'original': str,              # Original input
+    'preprocessed': str,          # Text with placeholders
+    'google_translation': str,    # Google output with placeholders
+    'replacements_count': int,    # Number of terms substituted
+    'replaced_terms': list,       # Placeholder IDs
+    'src': str,                   # Source language code
+    'dest': str,                  # Target language code
+    'translation_time': float     # Seconds
 }
 ```
 
----
+## How It Works
 
-## 🤝 Contributing
+1. **Extract**: Identify noun phrases in your text
+2. **Match**: Check if they exist in your terminology
+3. **Replace**: Substitute matches with placeholders
+4. **Translate**: Send to Google Translate
+5. **Restore**: Replace placeholders with your translations
 
-Contributions welcome! Areas of interest:
-- Additional language support
-- Improved noun phrase extraction
-- Domain-specific terminology packs
-- Performance optimizations
 
----
+## Troubleshooting
 
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) file.
-
----
-
-## 🙏 Acknowledgments
-
-- Built on [Google Translate](https://translate.google.com/) for base translation
-- Uses [spaCy](https://spacy.io/) for NLP processing
-- Created for better African language translation tools
-
-**"Nkrane"** means "termites" in Akan/Twi - small but powerful workers, just like this library working to improve translation quality term by term.
-
----
-
-## 📧 Contact
-
-- Issues: [GitHub Issues](https://github.com/ghananlp/nkrane-gt/issues)
-- Email: natural.language.processing.gh@gmail.com
-- Website: [GhanaNLP](https://ghananlp.org)
-
----
-
-## ⚡ Quick Reference
-
-```python
-# Basic usage with terminology
-translator = NkraneTranslator(
-    target_lang='ak',
-    terminology_source='my_terms.csv'
-)
-
-# Different source language
-translator = NkraneTranslator(
-    target_lang='ak',
-    src_lang='fr',  # French to Akan
-    terminology_source='my_terms.csv'
-)
-
-# Translate and see what was replaced
-result = translator.translate("Your text here")
-print(result['text'])
-print(f"Replaced {result['replacements_count']} terms")
+**spaCy model not found:**
+```bash
+python -m spacy download en_core_web_sm
 ```
+
+**Terms not being substituted:**
+- Use `--debug` to see what's happening
+- Check CSV format and spelling
+- Matching is case-insensitive
+
+**Translation timeout:**
+- Default timeout is 30 seconds
+- Check your internet connection
+
+## License
+
+MIT

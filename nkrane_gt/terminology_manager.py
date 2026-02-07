@@ -20,7 +20,7 @@ except:
 class Term:
     term: str
     translation: str
-    source: str  # 'builtin' or 'user'
+    source: str  # 'user'
 
 class TerminologyManager:
     def __init__(self, target_lang: str, user_csv_path: str = None):
@@ -33,9 +33,13 @@ class TerminologyManager:
         """
         self.target_lang = target_lang
         self.terms = {}  # Dictionary: english_term -> translation
+        self.csv_provided = False
 
+        # Load user terms
         if user_csv_path:
             self._load_user_terms(user_csv_path)
+        else:
+            print("ℹ️  No terminology CSV provided. Translation will be direct without term substitution.")
 
     def _load_user_terms(self, csv_path: str):
         """Load user terms from CSV file."""
@@ -80,7 +84,7 @@ class TerminologyManager:
                         text_col = reader.fieldnames[0]
                         trans_col = reader.fieldnames[1]
                     else:
-                        print(f"Error: CSV needs at least 2 columns")
+                        print(f"❌ Error: CSV needs at least 2 columns")
                         return
 
                 # Read terms
@@ -93,10 +97,13 @@ class TerminologyManager:
                         self.terms[english_term] = translation
                         user_terms_count += 1
 
-                print(f"Loaded {user_terms_count} terms from {csv_path}")
+                self.csv_provided = True
+                print(f"✅ Loaded {user_terms_count} terms from {csv_path}")
 
+        except FileNotFoundError:
+            print(f"❌ Error: CSV file not found at '{csv_path}'")
         except Exception as e:
-            print(f"Error loading user CSV: {e}")
+            print(f"❌ Error loading user CSV: {e}")
 
     def _remove_stopwords(self, phrase: str) -> str:
         """Remove stopwords from a phrase."""
@@ -183,79 +190,50 @@ class TerminologyManager:
                 'end': last_content.idx + len(last_content.text),  # End of last content word
                 'root': chunk.root.text,
                 'has_stopwords': len(tokens) != len(content_tokens),  # Flag if stopwords were removed
-                'leading_stopwords': ''.join(leading_stopwords),  # Stopwords before content
-                'trailing_stopwords': ''.join(trailing_stopwords)  # Stopwords after content
+                'leading_stopwords': ''.join(leading_stopwords),
+                'trailing_stopwords': ''.join(trailing_stopwords)
             })
-
-        # Also extract standalone proper nouns that weren't in chunks
-        covered_spans = set()
-        for np in noun_phrases:
-            for i in range(np['start'], np['end']):
-                covered_spans.add(i)
-
-        for token in doc:
-            if token.pos_ in ["PROPN", "NOUN"] and token.idx not in covered_spans:
-                # EXTRA CHECK: Skip pronouns like "I" even if tagged as PROPN/NOUN
-                # Also skip if it's a stopword
-                if not token.is_stop and token.pos_ != "PRON":
-                    noun_phrases.append({
-                        'text': token.text,
-                        'full_text': token.text,
-                        'chunk_start': token.idx,
-                        'chunk_end': token.idx + len(token.text),
-                        'start': token.idx,
-                        'end': token.idx + len(token.text),
-                        'root': token.text,
-                        'has_stopwords': False,
-                        'leading_stopwords': '',
-                        'trailing_stopwords': ''
-                    })
 
         return noun_phrases
 
     def preprocess_text(self, text: str) -> Tuple[str, Dict[str, str], Dict[str, str]]:
         """
-        Replace noun phrases in text with placeholders.
-        Only replaces content words (non-stopwords) from phrases that are found in terminology.
-        Stopwords within noun phrases are left in place and not replaced.
+        Replace terminology with placeholders.
 
         Args:
             text: Input text
 
         Returns:
-            Tuple of (preprocessed_text, placeholder_to_translation, original_cases)
+            Tuple of (preprocessed_text, replacements_dict, original_cases_dict)
         """
         if not self.terms:
+            # No terms to substitute
             return text, {}, {}
 
-        # Split text into sentences
+        # Split into sentences to process separately
         if SPACY_AVAILABLE:
             doc = nlp(text)
             sentences = [sent.text for sent in doc.sents]
             sentence_spans = [(sent.start_char, sent.end_char) for sent in doc.sents]
         else:
             # Simple sentence splitting
-            sentences = re.split(r'[.!?]+', text)
-            sentences = [s.strip() for s in sentences if s.strip()]
+            sentences = re.split(r'(?<=[.!?])\s+', text)
             sentence_spans = []
 
+        processed_sentences = []
         all_replacements = {}
         all_original_cases = {}
-        processed_sentences = []
-        placeholder_counter = 1  # MOVED OUTSIDE - shared across all sentences
+        placeholder_counter = 0  # Shared counter across all sentences
 
-        for sent_idx, sentence in enumerate(sentences):
-            if not sentence.strip():
-                processed_sentences.append(sentence)
-                continue
-
-            # Extract noun phrases from this sentence
+        for sentence in sentences:
+            # Extract noun phrases from the sentence
             noun_phrases = self._extract_noun_phrases(sentence)
 
-            # Filter to only phrases found in our dictionary (using content words)
+            # Find phrases that match our terminology (case-insensitive)
             matching_phrases = []
             for phrase in noun_phrases:
                 phrase_lower = phrase['text'].lower()
+                
                 # Try exact match with content words
                 if phrase_lower in self.terms:
                     matching_phrases.append(phrase)
@@ -274,7 +252,6 @@ class TerminologyManager:
             preprocessed_sentence = sentence
             sentence_replacements = {}
             sentence_original_cases = {}
-            # placeholder_counter removed from here - now shared across sentences
 
             for phrase in matching_phrases:
                 phrase_lower = phrase['text'].lower()
@@ -290,7 +267,6 @@ class TerminologyManager:
                     
                     # Replace the ENTIRE chunk (from chunk_start to chunk_end)
                     # with: leading_stopwords + placeholder + trailing_stopwords
-                    # This ensures stopwords are preserved in their correct positions
                     chunk_start_pos = phrase.get('chunk_start', phrase['start'])
                     chunk_end_pos = phrase.get('chunk_end', phrase['end'])
 
@@ -362,7 +338,6 @@ class TerminologyManager:
                 leading_stopword = ''
             
             # Determine the case to apply based on the full phrase (including leading stopword)
-            # This is important for cases like "The station" where "The" is capitalized
             original_to_check = original_full if original_full else original_content
             
             # Find the placeholder in the text to check if it's at sentence start
@@ -440,4 +415,7 @@ class TerminologyManager:
 
     def get_terms_count(self) -> Dict[str, int]:
         """Get count of terms."""
-        return {'total': len(self.terms)}
+        return {
+            'total': len(self.terms),
+            'user': len(self.terms)
+        }

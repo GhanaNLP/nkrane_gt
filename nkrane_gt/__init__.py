@@ -8,7 +8,7 @@ from .terminology_manager import TerminologyManager
 from .utils import list_available_options, export_terminology, create_sample_terminology
 from .language_codes import convert_lang_code, is_google_supported
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     'NkraneTranslator', 
     'TerminologyManager', 

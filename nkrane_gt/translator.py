@@ -2,7 +2,6 @@
 import logging
 import time
 import requests
-import urllib.parse
 from typing import Dict, Any, Optional
 from .terminology_manager import TerminologyManager
 from .language_codes import convert_lang_code, is_google_supported
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class NkraneTranslator:
     def __init__(self, target_lang: str, src_lang: str = 'en', 
-                 terminology_source: str = None, use_builtin: bool = True):
+                 terminology_source: str = None):
         """
         Initialize Nkrane Translator.
 
@@ -20,13 +19,11 @@ class NkraneTranslator:
             target_lang: Target language code (e.g., 'ak', 'ee', 'gaa')
             src_lang: Source language code (default: 'en')
             terminology_source: Path to user's terminology CSV file (optional)
-            use_builtin: Whether to use built-in dictionary (default: True) - currently not used
         """
         self.target_lang = target_lang
         self.src_lang = src_lang
-        self.use_builtin = use_builtin
 
-        # Initialize terminology manager (simplified to match actual signature)
+        # Initialize terminology manager
         self.terminology_manager = TerminologyManager(
             target_lang=target_lang,
             user_csv_path=terminology_source
@@ -38,14 +35,15 @@ class NkraneTranslator:
 
         # Check if Google Translate supports these languages
         if not is_google_supported(src_lang):
-            logger.warning(f"Source language '{src_lang}' may not be supported by Google Translate")
+            logger.warning(f"⚠️  Source language '{src_lang}' may not be supported by Google Translate")
 
         if not is_google_supported(target_lang):
-            logger.warning(f"Target language '{target_lang}' may not be supported by Google Translate")
+            logger.warning(f"⚠️  Target language '{target_lang}' may not be supported by Google Translate")
 
         # Log terminology stats
         stats = self.terminology_manager.get_terms_count()
-        logger.info(f"Terminology loaded: {stats['total']} total terms")
+        if stats['total'] > 0:
+            logger.info(f"📚 Terminology loaded: {stats['total']} terms")
 
     def _google_translate_sync(self, text: str) -> str:
         """
@@ -91,12 +89,13 @@ class NkraneTranslator:
         except (IndexError, TypeError) as e:
             raise Exception(f"Failed to parse Google Translate response: {e}")
 
-    def translate(self, text: str, **kwargs) -> Dict[str, Any]:
+    def translate(self, text: str, debug: bool = False, **kwargs) -> Dict[str, Any]:
         """
         Translate text with terminology control.
 
         Args:
             text: Text to translate
+            debug: If True, print detailed debug information
             **kwargs: Additional arguments (kept for API compatibility)
 
         Returns:
@@ -108,11 +107,29 @@ class NkraneTranslator:
             # Step 1: Preprocess - replace noun phrases with placeholders
             preprocessed_text, replacements, original_cases = self.terminology_manager.preprocess_text(text)
 
+            if debug:
+                print("\n" + "="*60)
+                print("🔍 DEBUG MODE")
+                print("="*60)
+                print(f"\n📝 Original text:\n   {text}")
+                print(f"\n🔄 Preprocessed text (with placeholders):\n   {preprocessed_text}")
+                print(f"\n📋 Term substitutions ({len(replacements)}):")
+                for placeholder, translation in replacements.items():
+                    original_info = original_cases.get(placeholder, '')
+                    if isinstance(original_info, dict):
+                        original = original_info.get('full', '')
+                    else:
+                        original = original_info
+                    print(f"   {placeholder} → '{translation}' (was: '{original}')")
+
             logger.debug(f"Preprocessed text: {preprocessed_text}")
             logger.debug(f"Replacements: {list(replacements.keys())}")
 
             # Step 2: Translate using synchronous Google Translate API
             translated_with_placeholders = self._google_translate_sync(preprocessed_text)
+
+            if debug:
+                print(f"\n🌐 Google translation (with placeholders):\n   {translated_with_placeholders}")
 
             # Step 3: Postprocess - replace placeholders with translations
             final_text = self.terminology_manager.postprocess_text(
@@ -122,6 +139,11 @@ class NkraneTranslator:
             )
 
             end_time = time.time()
+
+            if debug:
+                print(f"\n✅ Final translation:\n   {final_text}")
+                print(f"\n⏱️  Translation time: {end_time - start_time:.2f}s")
+                print("="*60 + "\n")
 
             return {
                 'text': final_text,
@@ -138,15 +160,20 @@ class NkraneTranslator:
             }
 
         except Exception as e:
-            logger.error(f"Translation failed: {e}")
+            logger.error(f"❌ Translation failed: {e}")
             raise
 
-    def batch_translate(self, texts: list, **kwargs) -> list:
+    def batch_translate(self, texts: list, debug: bool = False, **kwargs) -> list:
         """Translate multiple texts."""
         results = []
         for i, text in enumerate(texts):
             try:
-                result = self.translate(text, **kwargs)
+                if debug:
+                    print(f"\n{'='*60}")
+                    print(f"Translating text {i+1}/{len(texts)}")
+                    print(f"{'='*60}")
+                
+                result = self.translate(text, debug=debug, **kwargs)
                 results.append(result)
 
                 # Add a small delay to avoid rate limiting
@@ -154,7 +181,7 @@ class NkraneTranslator:
                     time.sleep(0.5)
 
             except Exception as e:
-                logger.error(f"Failed to translate text {i}: {e}")
+                logger.error(f"❌ Failed to translate text {i}: {e}")
                 results.append({
                     'text': '',
                     'error': str(e),
