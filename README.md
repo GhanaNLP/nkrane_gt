@@ -2,7 +2,7 @@
 
 Enhanced machine translation with terminology control using Google Translate.
 
-## How It Works
+### How It Works
 
 - Identifies nouns and noun phrases in your text
 - Checks if they exist in your translated terminologies csv 
