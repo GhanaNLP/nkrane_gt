@@ -24,8 +24,8 @@ The supported target languages:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ghananlp/nkrane_gt.git
-cd nkrane_gt
+git clone https://github.com/ghananlp/nkrane.git
+cd nkrane
 
 # Install the package
 pip install -e .
